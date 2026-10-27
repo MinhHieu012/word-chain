@@ -1,0 +1,5 @@
+/* Màn chơi: chỉ chuỗi từ cuộn, ô nhập luôn ở đáy. */
+.screen { overflow: hidden; padding-bottom: 8px; }
+
+.turn { font-size: 20px; font-weight: 900; }
+.mine { color: var(--primary); }

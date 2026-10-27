@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize } from '../public/normalize.js';
+import { normalize } from '../src/shared/normalize.ts';
 
 test('hai kiểu đặt dấu cho ra cùng một chuỗi', () => {
   assert.equal(normalize('hòa bình'), normalize('hoà bình'));

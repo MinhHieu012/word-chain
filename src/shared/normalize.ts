@@ -8,7 +8,7 @@ const CONSONANT_Y = /^(b|c|ch|d|đ|g|gh|h|k|kh|l|m|n|ng|ngh|nh|p|ph|r|s|t|th|tr|
 // Đưa một tiếng về dạng chuẩn để hai kiểu gõ ra cùng một chuỗi:
 // - vần oa/oe/uy không có phụ âm cuối: dấu đặt ở nguyên âm sau (hòa → hoà, thúy → thuý);
 // - i/y theo CONSONANT_Y.
-function canonical(syllable) {
+function canonical(syllable: string): string {
   const d = syllable.normalize('NFD');
   const tone = d.match(TONES)?.[0] ?? '';
   let bare = d.replace(TONES, '');
@@ -17,5 +17,5 @@ function canonical(syllable) {
   return (bare + tone).normalize('NFC');
 }
 
-export const normalize = (s) =>
+export const normalize = (s: string): string =>
   s.normalize('NFC').trim().toLowerCase().split(/\s+/).map(canonical).join(' ');

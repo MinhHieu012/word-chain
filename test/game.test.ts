@@ -1,17 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyEvent, checkWord, currentPlayer, initialState, isPaused, makeDict } from '../public/game.js';
+import { applyEvent, checkWord, currentPlayer, initialState, isPaused, makeDict } from '../src/shared/game.ts';
+import type { GamePayload, RoomEvent } from '../src/shared/protocol.ts';
 
 // Từ điển nhỏ: "xanh lá" → "lá cây" → "cây cối"; "cối xay" là từ cụt (không có từ nào bắt đầu bằng "xay").
 const dict = makeDict(['trời xanh', 'xanh lá', 'lá cây', 'cây cối', 'cối xay', 'bác sĩ', 'sĩ quan', 'quan tâm', 'tâm sự', 'sự thật', 'thật thà'].join('\n'), 'v1');
 
+type PlayerEventKind = Exclude<RoomEvent['kind'], 'MESSAGE'>;
+
 let seq = 0;
-const msg = (from, payload, extra = {}) => ({ seq: ++seq, kind: 'MESSAGE', from, payload, ...extra });
-const ev = (kind, playerId) => ({ seq: ++seq, kind, playerId });
-const start = (players = ['a', 'b']) => msg('a', { event: 'GAME_STARTED', players, dictVersion: 'v1' });
-const word = (from, turn, w) => msg(from, { event: 'WORD_SUBMITTED', turn, word: w });
-const timeout = (turn) => msg('a', { event: 'TURN_TIMEOUT', turn });
-const play = (...events) => events.reduce((s, e) => applyEvent(s, e, dict), initialState());
+const msg = (from: string, payload: GamePayload): RoomEvent => ({ type: 'EVENT', seq: ++seq, kind: 'MESSAGE', from, payload });
+const ev = (kind: PlayerEventKind, playerId: string): RoomEvent => ({ type: 'EVENT', seq: ++seq, kind, playerId });
+const start = (players: [string, string] = ['a', 'b']) => msg('a', { event: 'GAME_STARTED', players, dictVersion: 'v1' });
+const word = (from: string, turn: number, w: string) => msg(from, { event: 'WORD_SUBMITTED', turn, word: w });
+const timeout = (turn: number) => msg('a', { event: 'TURN_TIMEOUT', turn });
+const play = (...events: RoomEvent[]) => events.reduce((s, e) => applyEvent(s, e, dict), initialState());
 
 test('nối đúng thì đổi lượt', () => {
   const s = play(start(), word('a', 0, 'trời xanh'), word('b', 1, 'xanh lá'));
@@ -31,7 +34,7 @@ test('bỏ qua từ sai: sai tiếng đầu, không có trong từ điển, đã
   ]) {
     assert.equal(applyEvent(base, e, dict), base);
   }
-  assert.match(checkWord(base, 'trời xanh', dict), /bắt đầu bằng/);
+  assert.match(checkWord(base, 'trời xanh', dict) ?? '', /bắt đầu bằng/);
   const loop = play(start(), word('a', 0, 'sĩ quan'), word('b', 1, 'quan tâm'));
   assert.equal(checkWord(loop, 'tâm sự', dict), null);
 });
@@ -46,7 +49,7 @@ test('từ cụt: người vừa đi thắng; nước đầu không được là
   assert.equal(s.phase, 'over');
   assert.equal(s.winner, 'a');
   assert.equal(s.reason, 'DEAD_END');
-  assert.match(checkWord(play(start()), 'cối xay', dict), /từ cụt/);
+  assert.match(checkWord(play(start()), 'cối xay', dict) ?? '', /từ cụt/);
 });
 
 test('hết giờ và gửi từ cùng turn: chỉ sự kiện đến trước có tác dụng', () => {

@@ -1,0 +1,14 @@
+.timer { position: relative; width: 56px; height: 56px; flex: none; display: grid; place-items: center; }
+.timer svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.timer circle { fill: none; stroke-width: 5; }
+.timer span { font-weight: 900; font-size: 18px; font-variant-numeric: tabular-nums; }
+
+.track { stroke: var(--track); }
+.bar {
+  stroke: var(--primary);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 200ms linear, stroke 200ms;
+}
+
+.low .bar { stroke: var(--danger); }
+.low span { color: var(--danger); }

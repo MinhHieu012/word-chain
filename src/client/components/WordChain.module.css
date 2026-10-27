@@ -1,0 +1,29 @@
+.chain {
+  flex: 1;
+  list-style: none;
+  margin: 0;
+  padding: 4px 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  min-height: 160px;
+  scroll-behavior: smooth;
+}
+
+.empty { margin: auto; color: var(--muted-fg); text-align: center; }
+
+.bubble {
+  max-width: 80%;
+  padding: 10px 16px;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  font-size: 20px;
+  font-weight: 800;
+  animation: pop 220ms var(--ease);
+}
+.me { align-self: flex-end; background: var(--primary); color: var(--on-primary); border-bottom-right-radius: 6px; }
+.opp { align-self: flex-start; background: var(--opp-soft); border-bottom-left-radius: 6px; }
+
+/* Tiếng đầu: phần nối với từ trước. */
+.link { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 4px; }

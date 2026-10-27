@@ -1,0 +1,10 @@
+.codeCard { text-align: center; }
+
+.code {
+  margin: 0;
+  font-size: clamp(36px, 12vw, 48px);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}

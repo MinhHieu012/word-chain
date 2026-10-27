@@ -1,14 +1,16 @@
 // Tạo public/dict-v1.txt từ dữ liệu Wiktionary tiếng Việt của kaikki.org (CC BY-SA 4.0).
-// Chạy: node scripts/build-dict.js   (tải lại dữ liệu: xóa data/kaikki-vi.jsonl)
+// Chạy: npm run build-dict   (tải lại dữ liệu: xóa data/kaikki-vi.jsonl)
+// Đổi dữ liệu thì tăng DICT_VERSION trong src/shared/game.ts để client không dùng cache cũ.
 import { createReadStream, createWriteStream, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { createInterface } from 'node:readline';
-import { normalize } from '../public/normalize.js';
+import type { ReadableStream } from 'node:stream/web';
+import { DICT_VERSION as VERSION } from '../src/shared/game.ts';
+import { normalize } from '../src/shared/normalize.ts';
 
 const URL = 'https://kaikki.org/dictionary/Vietnamese/kaikki.org-dictionary-Vietnamese.jsonl';
 const RAW = 'data/kaikki-vi.jsonl';
-const VERSION = 'v1';
 
 const letter = 'a-zàáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ';
 const TWO_SYLLABLES = new RegExp(`^[${letter}]+ [${letter}]+$`);
@@ -17,15 +19,15 @@ async function download() {
   mkdirSync('data', { recursive: true });
   console.log(`Đang tải ${URL} ...`);
   const res = await fetch(URL);
-  if (!res.ok) throw new Error(`Tải thất bại: HTTP ${res.status}`);
-  await pipeline(Readable.fromWeb(res.body), createWriteStream(RAW));
+  if (!res.ok || !res.body) throw new Error(`Tải thất bại: HTTP ${res.status}`);
+  await pipeline(Readable.fromWeb(res.body as ReadableStream), createWriteStream(RAW));
   return res.headers.get('last-modified');
 }
 
 const lastModified = existsSync(RAW) ? null : await download();
 
 let viEntries = 0;
-const words = new Set();
+const words = new Set<string>();
 const lines = createInterface({ input: createReadStream(RAW), crlfDelay: Infinity });
 for await (const line of lines) {
   if (!line) continue;
