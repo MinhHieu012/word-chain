@@ -1,5 +1,5 @@
 // Trạng thái phòng phía client: hàm thuần, dễ test. Game state được suy ra từ `events` (xem game.ts).
-import type { RoomEvent, ServerMessage } from '../../shared/protocol.ts';
+import type { OpenRoom, RoomEvent, ServerMessage } from '../../shared/protocol.ts';
 import type { Session } from '../lib/session.ts';
 
 export type ConnStatus = 'connecting' | 'open' | 'reconnecting' | 'replaced';
@@ -18,7 +18,7 @@ export interface RoomState {
   roomError: string;
   hostId: string | null;
   players: Player[];
-  openRooms: string[]; // phòng đang chờ người vào, hiện ở trang chủ
+  openRooms: OpenRoom[] | null; // phòng đang chờ người vào, hiện ở trang chủ; null = chưa nhận
   events: RoomEvent[]; // sự kiện của ván hiện tại
   lastSeq: number;
 }
@@ -40,7 +40,7 @@ export const initialRoomState = (session: Session | null): RoomState => ({
   roomError: '',
   hostId: null,
   players: [],
-  openRooms: [],
+  openRooms: null,
   events: [],
   lastSeq: 0,
 });
@@ -93,7 +93,7 @@ function applyServerMessage(state: RoomState, msg: ServerMessage): RoomState {
     }
 
     case 'ROOM_LIST':
-      return { ...state, openRooms: msg.roomIds };
+      return { ...state, openRooms: msg.rooms };
 
     case 'HOST_CHANGED':
       return { ...state, hostId: msg.hostId };

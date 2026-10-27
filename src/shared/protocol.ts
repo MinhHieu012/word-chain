@@ -56,9 +56,15 @@ export interface RoomSnapshot {
   log: RoomEvent[];
 }
 
+/** Phòng công khai đang chờ người vào. */
+export interface OpenRoom {
+  roomId: string;
+  createdAt: number; // ms, giờ server
+}
+
 export type ServerMessage =
   | RoomSnapshot
   | RoomEvent
   | { type: 'HOST_CHANGED'; hostId: string }
-  | { type: 'ROOM_LIST'; roomIds: string[] }
+  | { type: 'ROOM_LIST'; rooms: OpenRoom[] }
   | { type: 'ERROR'; requestId?: string; code: ErrorCode; message: string };

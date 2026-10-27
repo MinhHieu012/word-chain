@@ -5,6 +5,21 @@ import styles from './HomeScreen.module.css';
 const CODE_PATTERN = /^[A-Z0-9]{6}$/;
 const roomFromUrl = () => (new URLSearchParams(location.search).get('room') ?? '').toUpperCase().slice(0, 6);
 
+const waitingLabel = (ms: number) => {
+  const min = Math.floor(ms / 60_000);
+  return min < 1 ? 'vừa tạo' : `chờ ${min} phút`;
+};
+
+// Giờ hiện tại, cập nhật định kỳ để nhãn "chờ N phút" tự đổi.
+function useNow(intervalMs: number) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(timer);
+  }, [intervalMs]);
+  return now;
+}
+
 export function HomeScreen({ room }: { room: RoomApi }) {
   const { state } = room;
   const [code, setCode] = useState(roomFromUrl);
@@ -13,6 +28,8 @@ export function HomeScreen({ room }: { room: RoomApi }) {
   const { listRooms } = room;
 
   const [isPrivate, setIsPrivate] = useState(false);
+  const openRooms = state.openRooms;
+  const now = useNow(30_000);
 
   // Đăng ký một lần mỗi kết nối; server tự gửi danh sách mới khi có thay đổi.
   useEffect(() => {
@@ -47,47 +64,65 @@ export function HomeScreen({ room }: { room: RoomApi }) {
         <span>hoặc</span>
       </div>
 
-      <section className="card" aria-labelledby="open-rooms-title">
-        <h2 className="label" id="open-rooms-title">Phòng đang chờ</h2>
-        {state.openRooms.length === 0 ? (
-          <p className={styles.empty}>Chưa có phòng nào. Hãy tạo phòng mới!</p>
+      <section className="card" aria-labelledby="join-title">
+        <h2 className="label" id="join-title">Vào phòng có sẵn</h2>
+        <form className={styles.joinRow} onSubmit={join} noValidate>
+          <label className="visually-hidden" htmlFor="input-code">Mã phòng</label>
+          <input
+            className={`input ${styles.code}`}
+            id="input-code"
+            maxLength={6}
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            placeholder="Nhập mã"
+            aria-describedby="home-error"
+            aria-invalid={!!error}
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value);
+              if (error) room.setHomeError('');
+            }}
+          />
+          <button className="btn btn-secondary" type="submit" disabled={!ready}>
+            Vào
+          </button>
+        </form>
+        <p className="field-error" id="home-error" role="alert">{error}</p>
+
+        <div className={styles.listHead}>
+          <h3 className={styles.listTitle} id="open-rooms-title">Phòng đang chờ</h3>
+          {openRooms && <span className={styles.live}>{openRooms.length} phòng</span>}
+        </div>
+        {!openRooms ? (
+          <p className={styles.empty}>Đang tải…</p>
+        ) : openRooms.length === 0 ? (
+          <p className={styles.empty}>Chưa có ai mở phòng. Tạo phòng mới để người khác vào cùng!</p>
         ) : (
-          <ul className={styles.roomList}>
-            {state.openRooms.map((id) => (
-              <li key={id}>
-                <button className={`btn btn-secondary btn-block ${styles.roomItem}`} type="button" disabled={!ready} onClick={() => room.joinRoom(id)}>
-                  <span className={styles.roomCode}>{id}</span>
-                  <span>Vào</span>
-                </button>
-              </li>
-            ))}
+          <ul className={styles.roomList} aria-labelledby="open-rooms-title">
+            {openRooms.map((r) => {
+              const meta = `1/2 người · ${waitingLabel(now - r.createdAt)}`;
+              return (
+                <li key={r.roomId}>
+                  <button
+                    className={styles.roomItem}
+                    type="button"
+                    disabled={!ready}
+                    aria-label={`Vào phòng ${r.roomId}, ${meta}`}
+                    onClick={() => room.joinRoom(r.roomId)}
+                  >
+                    <span className={styles.roomInfo}>
+                      <span className={styles.roomCode}>{r.roomId}</span>
+                      <span className={styles.roomMeta}>{meta}</span>
+                    </span>
+                    <span className={styles.roomJoin} aria-hidden="true">Vào</span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
-
-      <form className="card" onSubmit={join} noValidate>
-        <label className="label" htmlFor="input-code">Mã phòng</label>
-        <input
-          className={`input ${styles.code}`}
-          id="input-code"
-          maxLength={6}
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          placeholder="KX7P4M"
-          aria-describedby="home-error"
-          aria-invalid={!!error}
-          value={code}
-          onChange={(e) => {
-            setCode(e.target.value);
-            if (error) room.setHomeError('');
-          }}
-        />
-        <p className="field-error" id="home-error" role="alert">{error}</p>
-        <button className="btn btn-secondary btn-block" type="submit" disabled={!ready}>
-          Vào phòng
-        </button>
-      </form>
 
       <details className={styles.rules}>
         <summary>Cách chơi</summary>

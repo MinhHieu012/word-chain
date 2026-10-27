@@ -57,6 +57,8 @@ test('mất kết nối thì chưa còn ở trong phòng, nhưng giữ phiên đ
 });
 
 test('danh sách phòng chờ thay mới mỗi lần nhận ROOM_LIST', () => {
-  const s = run(initialRoomState(null), server({ type: 'ROOM_LIST', roomIds: ['AAAAAA', 'BBBBBB'] }), server({ type: 'ROOM_LIST', roomIds: ['CCCCCC'] }));
-  assert.deepEqual(s.openRooms, ['CCCCCC']);
+  assert.equal(initialRoomState(null).openRooms, null);
+  const room = (roomId: string) => ({ roomId, createdAt: 0 });
+  const s = run(initialRoomState(null), server({ type: 'ROOM_LIST', rooms: [room('AAAAAA'), room('BBBBBB')] }), server({ type: 'ROOM_LIST', rooms: [room('CCCCCC')] }));
+  assert.deepEqual(s.openRooms, [room('CCCCCC')]);
 });

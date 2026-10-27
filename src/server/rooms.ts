@@ -32,6 +32,7 @@ interface Room {
   seq: number;
   lastActivity: number;
   emptySince: number | null;
+  createdAt: number;
   private: boolean; // không hiện trong danh sách, chỉ vào bằng mã
 }
 
@@ -82,7 +83,8 @@ const anyConnected = (room: Room) => [...room.players.values()].some((p) => p.co
 // Phòng đang chờ: công khai, chủ phòng còn kết nối và còn chỗ. Mới nhất lên đầu.
 function roomList(): ServerMessage {
   const open = [...rooms.values()].filter((r) => !r.private && r.players.size < config.maxPlayers && anyConnected(r));
-  return { type: 'ROOM_LIST', roomIds: open.reverse().slice(0, config.roomListLimit).map((r) => r.id) };
+  const list = open.reverse().slice(0, config.roomListLimit);
+  return { type: 'ROOM_LIST', rooms: list.map((r) => ({ roomId: r.id, createdAt: r.createdAt })) };
 }
 
 // Gọi sau mọi thay đổi có thể làm đổi danh sách; chỉ gửi khi danh sách thật sự khác.
@@ -177,7 +179,7 @@ const handlers: Handlers = {
     if (client.seat) return fail(client, 'INVALID_MESSAGE', msg.requestId);
     const room: Room = {
       id: newRoomId(), players: new Map(), hostId: '', log: [], seq: 0, lastActivity: Date.now(), emptySince: null,
-      private: msg.private === true,
+      createdAt: Date.now(), private: msg.private === true,
     };
     rooms.set(room.id, room);
     const player = addPlayer(room, client);
