@@ -1,0 +1,13 @@
+{
+  "name": "word-chain",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "build-dict": "node scripts/build-dict.js"
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  }
+}
