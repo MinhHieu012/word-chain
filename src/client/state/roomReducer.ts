@@ -18,6 +18,7 @@ export interface RoomState {
   roomError: string;
   hostId: string | null;
   players: Player[];
+  openRooms: string[]; // phòng đang chờ người vào, hiện ở trang chủ
   events: RoomEvent[]; // sự kiện của ván hiện tại
   lastSeq: number;
 }
@@ -39,6 +40,7 @@ export const initialRoomState = (session: Session | null): RoomState => ({
   roomError: '',
   hostId: null,
   players: [],
+  openRooms: [],
   events: [],
   lastSeq: 0,
 });
@@ -89,6 +91,9 @@ function applyServerMessage(state: RoomState, msg: ServerMessage): RoomState {
         events: newGame ? [msg] : [...state.events, msg],
       };
     }
+
+    case 'ROOM_LIST':
+      return { ...state, openRooms: msg.roomIds };
 
     case 'HOST_CHANGED':
       return { ...state, hostId: msg.hostId };

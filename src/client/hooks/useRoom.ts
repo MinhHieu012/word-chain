@@ -85,6 +85,8 @@ export function useRoom() {
     };
   }, [send]);
 
+  const listRooms = useCallback(() => send({ type: 'LIST_ROOMS' }), [send]);
+
   const request = (msg: ClientMessage) => {
     if (send(msg)) dispatch({ type: 'request' });
   };
@@ -92,7 +94,8 @@ export function useRoom() {
   return {
     state,
     me: state.session?.playerId ?? null,
-    createRoom: () => request({ type: 'CREATE_ROOM' }),
+    createRoom: (isPrivate: boolean) => request({ type: 'CREATE_ROOM', private: isPrivate }),
+    listRooms,
     joinRoom: (roomId: string) => request({ type: 'JOIN_ROOM', roomId }),
     setHomeError: (message: string) => dispatch({ type: 'homeError', message }),
     sendGame: (payload: GamePayload, newGame = false) => send({ type: 'PLAYER_MESSAGE', payload, newGame }),

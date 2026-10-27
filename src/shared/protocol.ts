@@ -29,7 +29,8 @@ export type GamePayload =
 // ---------- Client → server ----------
 
 export type ClientMessage = { requestId?: string } & (
-  | { type: 'CREATE_ROOM' }
+  | { type: 'CREATE_ROOM'; private?: boolean }
+  | { type: 'LIST_ROOMS' } // đăng ký nhận danh sách phòng chờ, server tự gửi lại khi danh sách đổi
   | { type: 'JOIN_ROOM'; roomId: string }
   | { type: 'REJOIN_ROOM'; roomId: string; rejoinToken: string }
   | { type: 'PLAYER_MESSAGE'; payload: GamePayload; newGame?: boolean }
@@ -59,4 +60,5 @@ export type ServerMessage =
   | RoomSnapshot
   | RoomEvent
   | { type: 'HOST_CHANGED'; hostId: string }
+  | { type: 'ROOM_LIST'; roomIds: string[] }
   | { type: 'ERROR'; requestId?: string; code: ErrorCode; message: string };

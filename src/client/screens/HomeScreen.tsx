@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import type { RoomApi } from '../hooks/useRoom.ts';
 import styles from './HomeScreen.module.css';
 
@@ -10,6 +10,14 @@ export function HomeScreen({ room }: { room: RoomApi }) {
   const [code, setCode] = useState(roomFromUrl);
   const ready = state.status === 'open' && !state.pending;
   const error = state.homeError;
+  const { listRooms } = room;
+
+  const [isPrivate, setIsPrivate] = useState(false);
+
+  // Đăng ký một lần mỗi kết nối; server tự gửi danh sách mới khi có thay đổi.
+  useEffect(() => {
+    if (state.status === 'open') listRooms();
+  }, [state.status, listRooms]);
 
   function join(e: FormEvent) {
     e.preventDefault();
@@ -26,14 +34,36 @@ export function HomeScreen({ room }: { room: RoomApi }) {
       </header>
 
       <div className="card">
-        <button className="btn btn-primary btn-block" type="button" disabled={!ready} onClick={room.createRoom}>
+        <button className="btn btn-primary btn-block" type="button" disabled={!ready} onClick={() => room.createRoom(isPrivate)}>
           Tạo phòng mới
         </button>
+        <label className={styles.private}>
+          <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
+          Phòng riêng tư (chỉ vào bằng mã)
+        </label>
       </div>
 
       <div className={styles.divider} aria-hidden="true">
         <span>hoặc</span>
       </div>
+
+      <section className="card" aria-labelledby="open-rooms-title">
+        <h2 className="label" id="open-rooms-title">Phòng đang chờ</h2>
+        {state.openRooms.length === 0 ? (
+          <p className={styles.empty}>Chưa có phòng nào. Hãy tạo phòng mới!</p>
+        ) : (
+          <ul className={styles.roomList}>
+            {state.openRooms.map((id) => (
+              <li key={id}>
+                <button className={`btn btn-secondary btn-block ${styles.roomItem}`} type="button" disabled={!ready} onClick={() => room.joinRoom(id)}>
+                  <span className={styles.roomCode}>{id}</span>
+                  <span>Vào</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <form className="card" onSubmit={join} noValidate>
         <label className="label" htmlFor="input-code">Mã phòng</label>

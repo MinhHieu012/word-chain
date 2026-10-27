@@ -32,11 +32,14 @@ interface Room {
   seq: number;
   lastActivity: number;
   emptySince: number | null;
+  private: boolean; // không hiện trong danh sách, chỉ vào bằng mã
 }
 
 type EventBody = RoomEvent extends infer E ? (E extends RoomEvent ? Omit<E, 'type' | 'seq'> : never) : never;
 
 const rooms = new Map<string, Room>();
+const listListeners = new Set<Client>(); // client ở trang chủ, chưa vào phòng
+let lastList = '';
 
 export const send = (client: Client | null, msg: ServerMessage) => {
   if (client?.ws.readyState === WebSocket.OPEN) client.ws.send(JSON.stringify(msg));
@@ -76,6 +79,21 @@ function snapshot(room: Room, player: Player, requestId: string | undefined, typ
 
 const anyConnected = (room: Room) => [...room.players.values()].some((p) => p.connected);
 
+// Phòng đang chờ: công khai, chủ phòng còn kết nối và còn chỗ. Mới nhất lên đầu.
+function roomList(): ServerMessage {
+  const open = [...rooms.values()].filter((r) => !r.private && r.players.size < config.maxPlayers && anyConnected(r));
+  return { type: 'ROOM_LIST', roomIds: open.reverse().slice(0, config.roomListLimit).map((r) => r.id) };
+}
+
+// Gọi sau mọi thay đổi có thể làm đổi danh sách; chỉ gửi khi danh sách thật sự khác.
+function notifyList(): void {
+  const msg = roomList();
+  const json = JSON.stringify(msg);
+  if (json === lastList) return;
+  lastList = json;
+  for (const c of listListeners) send(c, msg);
+}
+
 // Host phải là người đang kết nối nếu còn ai đó kết nối.
 function ensureHost(room: Room): void {
   if (room.players.get(room.hostId)?.connected) return;
@@ -99,6 +117,8 @@ function seat(room: Room, player: Player, client: Client): void {
   Object.assign(player, { client, connected: true, graceTimer: null });
   client.seat = { room, player };
   room.emptySince = null;
+  listListeners.delete(client);
+  notifyList();
 }
 
 function addPlayer(room: Room, client: Client): Player {
@@ -121,6 +141,7 @@ function removePlayer(room: Room, player: Player): void {
   emit(room, { kind: 'PLAYER_LEFT', playerId: player.id });
   if (room.players.size === 0) return deleteRoom(room);
   ensureHost(room);
+  notifyList();
 }
 
 function deleteRoom(room: Room): void {
@@ -132,6 +153,7 @@ function deleteRoom(room: Room): void {
       p.client.ws.close(CloseCode.ROOM_GONE, 'room closed');
     }
   }
+  notifyList();
 }
 
 function disconnect(room: Room, player: Player): void {
@@ -141,6 +163,7 @@ function disconnect(room: Room, player: Player): void {
   ensureHost(room);
   scheduleSeatGrace(room);
   if (!anyConnected(room)) room.emptySince = Date.now();
+  notifyList();
 }
 
 const findRoom = (roomId: unknown) => rooms.get(String(roomId ?? '').toUpperCase());
@@ -152,12 +175,22 @@ type Handlers = { [T in ClientMessage['type']]: (client: Client, msg: Extract<Cl
 const handlers: Handlers = {
   CREATE_ROOM(client, msg) {
     if (client.seat) return fail(client, 'INVALID_MESSAGE', msg.requestId);
-    const room: Room = { id: newRoomId(), players: new Map(), hostId: '', log: [], seq: 0, lastActivity: Date.now(), emptySince: null };
+    const room: Room = {
+      id: newRoomId(), players: new Map(), hostId: '', log: [], seq: 0, lastActivity: Date.now(), emptySince: null,
+      private: msg.private === true,
+    };
     rooms.set(room.id, room);
     const player = addPlayer(room, client);
     room.hostId = player.id;
     send(client, snapshot(room, player, msg.requestId, 'ROOM_CREATED'));
     emit(room, { kind: 'PLAYER_JOINED', playerId: player.id });
+  },
+
+  LIST_ROOMS(client) {
+    if (client.seat) return;
+    if (client.rate.exceeded()) return fail(client, 'RATE_LIMITED');
+    listListeners.add(client);
+    send(client, roomList());
   },
 
   JOIN_ROOM(client, msg) {
@@ -232,6 +265,7 @@ export function handleMessage(client: Client, raw: string): void {
 }
 
 export function handleClose(client: Client, code: number): void {
+  listListeners.delete(client);
   if (!client.seat) return;
   const { room, player } = client.seat;
   client.seat = null;

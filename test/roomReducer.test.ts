@@ -55,3 +55,8 @@ test('mất kết nối thì chưa còn ở trong phòng, nhưng giữ phiên đ
   assert.equal(s.status, 'reconnecting');
   assert.deepEqual(s.session, session);
 });
+
+test('danh sách phòng chờ thay mới mỗi lần nhận ROOM_LIST', () => {
+  const s = run(initialRoomState(null), server({ type: 'ROOM_LIST', roomIds: ['AAAAAA', 'BBBBBB'] }), server({ type: 'ROOM_LIST', roomIds: ['CCCCCC'] }));
+  assert.deepEqual(s.openRooms, ['CCCCCC']);
+});
