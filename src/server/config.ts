@@ -17,5 +17,6 @@ export const config = {
   maxPayloadBytes: 4096,
   roomCodeAlphabet: 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', // bỏ 0/O, 1/I/L
   roomCodeLength: 6,
-  roomListLimit: 20, // số phòng chờ tối đa hiện ở trang chủ
+  roomPreviewCount: 3, // số phòng chờ mới nhất hiện ở trang chủ
+  roomPageSize: 10, // số phòng mỗi lần tải ở trang danh sách
 };

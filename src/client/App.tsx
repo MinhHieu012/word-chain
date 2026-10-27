@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { applyEvent, DICT_VERSION, initialState } from '../shared/game.ts';
 import { ConnectionBanner } from './components/ConnectionBanner.tsx';
 import { useDictionary } from './hooks/useDictionary.ts';
 import { useRoom } from './hooks/useRoom.ts';
 import { GameScreen } from './screens/GameScreen.tsx';
-import { HomeScreen } from './screens/HomeScreen.tsx';
+import { HomeScreen, ROOMS_HASH } from './screens/HomeScreen.tsx';
 import { LobbyScreen } from './screens/LobbyScreen.tsx';
+import { RoomsScreen } from './screens/RoomsScreen.tsx';
 
 export function App() {
   const room = useRoom();
@@ -18,9 +19,29 @@ export function App() {
     [state.events, dict],
   );
 
-  // Đã vào phòng thì bỏ ?room=... khỏi URL, để tải lại trang không điền lại mã cũ.
+  // Trang "Tất cả phòng" nằm ở #phong để nút Back của trình duyệt/điện thoại đóng được nó.
+  const [hash, setHash] = useState(location.hash);
+  const openedInApp = useRef(false);
   useEffect(() => {
-    if (state.inRoom && location.search) history.replaceState(null, '', location.pathname);
+    const onHash = () => {
+      openedInApp.current = location.hash === ROOMS_HASH;
+      setHash(location.hash);
+    };
+    addEventListener('hashchange', onHash);
+    return () => removeEventListener('hashchange', onHash);
+  }, []);
+  const closeRooms = () => {
+    if (openedInApp.current) return history.back();
+    history.replaceState(null, '', location.pathname + location.search);
+    setHash('');
+  };
+
+  // Đã vào phòng thì bỏ ?room=... và #phong khỏi URL, để tải lại trang không điền lại mã cũ.
+  useEffect(() => {
+    if (state.inRoom && (location.search || location.hash)) {
+      history.replaceState(null, '', location.pathname);
+      setHash('');
+    }
   }, [state.inRoom]);
 
   const inRoomIds = state.players.map((p) => p.id);
@@ -40,13 +61,14 @@ export function App() {
   const inGame =
     game.phase === 'playing' ||
     (game.phase === 'over' && !!me && game.players.includes(me) && game.players.every((p) => inRoomIds.includes(p)));
-  const screen = !state.session ? 'home' : inGame ? 'game' : 'lobby';
+  const screen = !state.session ? (hash === ROOMS_HASH ? 'rooms' : 'home') : inGame ? 'game' : 'lobby';
 
   return (
     <>
       <ConnectionBanner status={state.status} hasSession={!!state.session} inRoom={state.inRoom} dictError={dictError} />
       <main className="app">
         {screen === 'home' && <HomeScreen room={room} />}
+        {screen === 'rooms' && <RoomsScreen room={room} onBack={closeRooms} />}
         {screen === 'lobby' && <LobbyScreen room={room} game={game} dictReady={!!dict} bothOnline={bothOnline} onStart={startGame} />}
         {screen === 'game' && dict && <GameScreen room={room} game={game} dict={dict} bothOnline={bothOnline} onRematch={startGame} />}
       </main>

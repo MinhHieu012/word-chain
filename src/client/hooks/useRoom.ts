@@ -86,6 +86,13 @@ export function useRoom() {
   }, [send]);
 
   const listRooms = useCallback(() => send({ type: 'LIST_ROOMS' }), [send]);
+  // before = order của phòng cuối đã có; bỏ trống để tải lại từ đầu.
+  const loadRoomPage = useCallback(
+    (before?: number) => {
+      if (send({ type: 'ROOM_PAGE', before })) dispatch({ type: 'pageRequest', first: before === undefined });
+    },
+    [send],
+  );
 
   const request = (msg: ClientMessage) => {
     if (send(msg)) dispatch({ type: 'request' });
@@ -96,6 +103,7 @@ export function useRoom() {
     me: state.session?.playerId ?? null,
     createRoom: (isPrivate: boolean) => request({ type: 'CREATE_ROOM', private: isPrivate }),
     listRooms,
+    loadRoomPage,
     joinRoom: (roomId: string) => request({ type: 'JOIN_ROOM', roomId }),
     setHomeError: (message: string) => dispatch({ type: 'homeError', message }),
     sendGame: (payload: GamePayload, newGame = false) => send({ type: 'PLAYER_MESSAGE', payload, newGame }),

@@ -3,7 +3,7 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { WebSocket } from 'ws';
 import { CloseCode, ERROR_MESSAGES } from '../shared/protocol.ts';
-import type { ClientMessage, ErrorCode, RoomEvent, RoomSnapshot, ServerMessage } from '../shared/protocol.ts';
+import type { ClientMessage, ErrorCode, OpenRoom, RoomEvent, RoomSnapshot, ServerMessage } from '../shared/protocol.ts';
 import { config } from './config.ts';
 import { isJoinLimited, MessageRate, recordJoinFail } from './rateLimit.ts';
 
@@ -33,6 +33,7 @@ interface Room {
   lastActivity: number;
   emptySince: number | null;
   createdAt: number;
+  order: number;
   private: boolean; // không hiện trong danh sách, chỉ vào bằng mã
 }
 
@@ -41,6 +42,7 @@ type EventBody = RoomEvent extends infer E ? (E extends RoomEvent ? Omit<E, 'typ
 const rooms = new Map<string, Room>();
 const listListeners = new Set<Client>(); // client ở trang chủ, chưa vào phòng
 let lastList = '';
+let roomCounter = 0;
 
 export const send = (client: Client | null, msg: ServerMessage) => {
   if (client?.ws.readyState === WebSocket.OPEN) client.ws.send(JSON.stringify(msg));
@@ -81,10 +83,15 @@ function snapshot(room: Room, player: Player, requestId: string | undefined, typ
 const anyConnected = (room: Room) => [...room.players.values()].some((p) => p.connected);
 
 // Phòng đang chờ: công khai, chủ phòng còn kết nối và còn chỗ. Mới nhất lên đầu.
+// ponytail: quét toàn bộ phòng mỗi lần; giữ một danh sách riêng nếu số phòng lên hàng chục nghìn.
+const openRooms = () =>
+  [...rooms.values()].filter((r) => !r.private && r.players.size < config.maxPlayers && anyConnected(r)).reverse();
+
+const toOpenRoom = (r: Room): OpenRoom => ({ roomId: r.id, createdAt: r.createdAt, order: r.order });
+
 function roomList(): ServerMessage {
-  const open = [...rooms.values()].filter((r) => !r.private && r.players.size < config.maxPlayers && anyConnected(r));
-  const list = open.reverse().slice(0, config.roomListLimit);
-  return { type: 'ROOM_LIST', rooms: list.map((r) => ({ roomId: r.id, createdAt: r.createdAt })) };
+  const open = openRooms();
+  return { type: 'ROOM_LIST', rooms: open.slice(0, config.roomPreviewCount).map(toOpenRoom), total: open.length };
 }
 
 // Gọi sau mọi thay đổi có thể làm đổi danh sách; chỉ gửi khi danh sách thật sự khác.
@@ -179,7 +186,7 @@ const handlers: Handlers = {
     if (client.seat) return fail(client, 'INVALID_MESSAGE', msg.requestId);
     const room: Room = {
       id: newRoomId(), players: new Map(), hostId: '', log: [], seq: 0, lastActivity: Date.now(), emptySince: null,
-      createdAt: Date.now(), private: msg.private === true,
+      createdAt: Date.now(), order: ++roomCounter, private: msg.private === true,
     };
     rooms.set(room.id, room);
     const player = addPlayer(room, client);
@@ -193,6 +200,15 @@ const handlers: Handlers = {
     if (client.rate.exceeded()) return fail(client, 'RATE_LIMITED');
     listListeners.add(client);
     send(client, roomList());
+  },
+
+  ROOM_PAGE(client, msg) {
+    if (client.rate.exceeded()) return fail(client, 'RATE_LIMITED', msg.requestId);
+    const { before } = msg;
+    if (before !== undefined && !Number.isInteger(before)) return fail(client, 'INVALID_MESSAGE', msg.requestId);
+    const older = openRooms().filter((r) => before === undefined || r.order < before);
+    const page = older.slice(0, config.roomPageSize);
+    send(client, { type: 'ROOM_PAGE', requestId: msg.requestId, rooms: page.map(toOpenRoom), hasMore: older.length > page.length });
   },
 
   JOIN_ROOM(client, msg) {

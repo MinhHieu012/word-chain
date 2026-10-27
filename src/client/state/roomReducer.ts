@@ -18,15 +18,24 @@ export interface RoomState {
   roomError: string;
   hostId: string | null;
   players: Player[];
-  openRooms: OpenRoom[] | null; // phòng đang chờ người vào, hiện ở trang chủ; null = chưa nhận
+  openRooms: OpenRoom[] | null; // vài phòng chờ mới nhất ở trang chủ; null = chưa nhận
+  openRoomTotal: number;
+  roomPage: RoomPage; // trang "Tất cả phòng", tải dần từng trang
   events: RoomEvent[]; // sự kiện của ván hiện tại
   lastSeq: number;
+}
+
+export interface RoomPage {
+  rooms: OpenRoom[];
+  hasMore: boolean;
+  loading: boolean;
 }
 
 export type RoomAction =
   | { type: 'socketOpen' }
   | { type: 'socketClosed'; replaced?: boolean }
   | { type: 'request' }
+  | { type: 'pageRequest'; first: boolean }
   | { type: 'homeError'; message: string }
   | { type: 'reset'; notice?: string }
   | { type: 'server'; msg: ServerMessage };
@@ -41,6 +50,8 @@ export const initialRoomState = (session: Session | null): RoomState => ({
   hostId: null,
   players: [],
   openRooms: null,
+  openRoomTotal: 0,
+  roomPage: { rooms: [], hasMore: true, loading: false },
   events: [],
   lastSeq: 0,
 });
@@ -53,6 +64,10 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
       return { ...state, status: action.replaced ? 'replaced' : 'reconnecting', inRoom: false, pending: false };
     case 'request':
       return { ...state, pending: true, homeError: '' };
+    case 'pageRequest': {
+      const rooms = action.first ? [] : state.roomPage.rooms;
+      return { ...state, homeError: '', roomPage: { rooms, hasMore: true, loading: true } };
+    }
     case 'homeError':
       return { ...state, homeError: action.message };
     case 'reset':
@@ -93,7 +108,14 @@ function applyServerMessage(state: RoomState, msg: ServerMessage): RoomState {
     }
 
     case 'ROOM_LIST':
-      return { ...state, openRooms: msg.rooms };
+      return { ...state, openRooms: msg.rooms, openRoomTotal: msg.total };
+
+    case 'ROOM_PAGE': {
+      // Phòng có thể đã lên trang trước khi danh sách đổi; bỏ trùng theo mã.
+      const seen = new Set(state.roomPage.rooms.map((r) => r.roomId));
+      const rooms = [...state.roomPage.rooms, ...msg.rooms.filter((r) => !seen.has(r.roomId))];
+      return { ...state, roomPage: { rooms, hasMore: msg.hasMore, loading: false } };
+    }
 
     case 'HOST_CHANGED':
       return { ...state, hostId: msg.hostId };
@@ -103,7 +125,7 @@ function applyServerMessage(state: RoomState, msg: ServerMessage): RoomState {
       if (state.session && !state.inRoom && (msg.code === 'ROOM_NOT_FOUND' || msg.code === 'INVALID_TOKEN')) {
         return roomReducer(state, { type: 'reset', notice: 'Phòng cũ không còn nữa.' });
       }
-      if (!state.inRoom) return { ...state, pending: false, homeError: msg.message };
+      if (!state.inRoom) return { ...state, pending: false, homeError: msg.message, roomPage: { ...state.roomPage, loading: false } };
       return { ...state, roomError: msg.message };
   }
 }

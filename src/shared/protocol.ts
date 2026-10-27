@@ -30,7 +30,8 @@ export type GamePayload =
 
 export type ClientMessage = { requestId?: string } & (
   | { type: 'CREATE_ROOM'; private?: boolean }
-  | { type: 'LIST_ROOMS' } // đăng ký nhận danh sách phòng chờ, server tự gửi lại khi danh sách đổi
+  | { type: 'LIST_ROOMS' } // đăng ký nhận vài phòng chờ mới nhất, server tự gửi lại khi đổi
+  | { type: 'ROOM_PAGE'; before?: number } // một trang phòng chờ, cũ hơn phòng có order = before
   | { type: 'JOIN_ROOM'; roomId: string }
   | { type: 'REJOIN_ROOM'; roomId: string; rejoinToken: string }
   | { type: 'PLAYER_MESSAGE'; payload: GamePayload; newGame?: boolean }
@@ -60,11 +61,13 @@ export interface RoomSnapshot {
 export interface OpenRoom {
   roomId: string;
   createdAt: number; // ms, giờ server
+  order: number; // tăng dần theo thứ tự tạo, dùng làm con trỏ phân trang
 }
 
 export type ServerMessage =
   | RoomSnapshot
   | RoomEvent
   | { type: 'HOST_CHANGED'; hostId: string }
-  | { type: 'ROOM_LIST'; rooms: OpenRoom[] }
+  | { type: 'ROOM_LIST'; rooms: OpenRoom[]; total: number }
+  | { type: 'ROOM_PAGE'; requestId?: string; rooms: OpenRoom[]; hasMore: boolean }
   | { type: 'ERROR'; requestId?: string; code: ErrorCode; message: string };

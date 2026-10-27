@@ -1,24 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { RoomList } from '../components/RoomList.tsx';
 import type { RoomApi } from '../hooks/useRoom.ts';
 import styles from './HomeScreen.module.css';
 
+export const ROOMS_HASH = '#phong';
 const CODE_PATTERN = /^[A-Z0-9]{6}$/;
 const roomFromUrl = () => (new URLSearchParams(location.search).get('room') ?? '').toUpperCase().slice(0, 6);
-
-const waitingLabel = (ms: number) => {
-  const min = Math.floor(ms / 60_000);
-  return min < 1 ? 'vừa tạo' : `chờ ${min} phút`;
-};
-
-// Giờ hiện tại, cập nhật định kỳ để nhãn "chờ N phút" tự đổi.
-function useNow(intervalMs: number) {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(timer);
-  }, [intervalMs]);
-  return now;
-}
 
 export function HomeScreen({ room }: { room: RoomApi }) {
   const { state } = room;
@@ -28,8 +15,7 @@ export function HomeScreen({ room }: { room: RoomApi }) {
   const { listRooms } = room;
 
   const [isPrivate, setIsPrivate] = useState(false);
-  const openRooms = state.openRooms;
-  const now = useNow(30_000);
+  const { openRooms, openRoomTotal } = state;
 
   // Đăng ký một lần mỗi kết nối; server tự gửi danh sách mới khi có thay đổi.
   useEffect(() => {
@@ -92,35 +78,13 @@ export function HomeScreen({ room }: { room: RoomApi }) {
 
         <div className={styles.listHead}>
           <h3 className={styles.listTitle} id="open-rooms-title">Phòng đang chờ</h3>
-          {openRooms && <span className={styles.live}>{openRooms.length} phòng</span>}
+          {openRooms && <span className={styles.live}>{openRoomTotal} phòng</span>}
         </div>
-        {!openRooms ? (
-          <p className={styles.empty}>Đang tải…</p>
-        ) : openRooms.length === 0 ? (
-          <p className={styles.empty}>Chưa có ai mở phòng. Tạo phòng mới để người khác vào cùng!</p>
-        ) : (
-          <ul className={styles.roomList} aria-labelledby="open-rooms-title">
-            {openRooms.map((r) => {
-              const meta = `1/2 người · ${waitingLabel(now - r.createdAt)}`;
-              return (
-                <li key={r.roomId}>
-                  <button
-                    className={styles.roomItem}
-                    type="button"
-                    disabled={!ready}
-                    aria-label={`Vào phòng ${r.roomId}, ${meta}`}
-                    onClick={() => room.joinRoom(r.roomId)}
-                  >
-                    <span className={styles.roomInfo}>
-                      <span className={styles.roomCode}>{r.roomId}</span>
-                      <span className={styles.roomMeta}>{meta}</span>
-                    </span>
-                    <span className={styles.roomJoin} aria-hidden="true">Vào</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+        <RoomList rooms={openRooms} disabled={!ready} onJoin={room.joinRoom} labelledBy="open-rooms-title" />
+        {openRooms && openRoomTotal > openRooms.length && (
+          <a className={`btn btn-ghost btn-small ${styles.more}`} href={ROOMS_HASH}>
+            Xem tất cả {openRoomTotal} phòng →
+          </a>
         )}
       </section>
 

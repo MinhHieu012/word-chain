@@ -56,9 +56,22 @@ test('mất kết nối thì chưa còn ở trong phòng, nhưng giữ phiên đ
   assert.deepEqual(s.session, session);
 });
 
+const room = (roomId: string, order = 0) => ({ roomId, createdAt: 0, order });
+
 test('danh sách phòng chờ thay mới mỗi lần nhận ROOM_LIST', () => {
   assert.equal(initialRoomState(null).openRooms, null);
-  const room = (roomId: string) => ({ roomId, createdAt: 0 });
-  const s = run(initialRoomState(null), server({ type: 'ROOM_LIST', rooms: [room('AAAAAA'), room('BBBBBB')] }), server({ type: 'ROOM_LIST', rooms: [room('CCCCCC')] }));
+  const s = run(initialRoomState(null), server({ type: 'ROOM_LIST', rooms: [room('AAAAAA'), room('BBBBBB')], total: 5 }), server({ type: 'ROOM_LIST', rooms: [room('CCCCCC')], total: 1 }));
   assert.deepEqual(s.openRooms, [room('CCCCCC')]);
+  assert.equal(s.openRoomTotal, 1);
+});
+
+test('trang danh sách phòng: tải tiếp thì nối thêm, bỏ trùng; tải lại từ đầu thì xóa cũ', () => {
+  const page = (rooms: ReturnType<typeof room>[], hasMore: boolean) => server({ type: 'ROOM_PAGE', rooms, hasMore });
+  let s = run(initialRoomState(null), { type: 'pageRequest', first: true }, page([room('A', 3), room('B', 2)], true));
+  assert.equal(s.roomPage.loading, false);
+  s = run(s, { type: 'pageRequest', first: false }, page([room('B', 2), room('C', 1)], false));
+  assert.deepEqual(s.roomPage.rooms.map((r) => r.roomId), ['A', 'B', 'C']);
+  assert.equal(s.roomPage.hasMore, false);
+  s = roomReducer(s, { type: 'pageRequest', first: true });
+  assert.deepEqual(s.roomPage, { rooms: [], hasMore: true, loading: true });
 });
