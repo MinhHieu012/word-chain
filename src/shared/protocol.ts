@@ -33,6 +33,7 @@ export type ClientMessage = { requestId?: string } & (
   | { type: 'LIST_ROOMS' } // đăng ký nhận vài phòng chờ mới nhất, server tự gửi lại khi đổi
   | { type: 'ROOM_PAGE'; before?: number } // một trang phòng chờ, cũ hơn phòng có order = before
   | { type: 'JOIN_ROOM'; roomId: string }
+  | { type: 'QUICK_JOIN' } // vào phòng chờ lâu nhất, không có thì tạo phòng công khai mới
   | { type: 'REJOIN_ROOM'; roomId: string; rejoinToken: string }
   | { type: 'PLAYER_MESSAGE'; payload: GamePayload; newGame?: boolean }
 );

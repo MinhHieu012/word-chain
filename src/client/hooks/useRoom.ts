@@ -105,6 +105,7 @@ export function useRoom() {
     listRooms,
     loadRoomPage,
     joinRoom: (roomId: string) => request({ type: 'JOIN_ROOM', roomId }),
+    quickJoin: () => request({ type: 'QUICK_JOIN' }),
     setHomeError: (message: string) => dispatch({ type: 'homeError', message }),
     sendGame: (payload: GamePayload, newGame = false) => send({ type: 'PLAYER_MESSAGE', payload, newGame }),
     leave: () => {

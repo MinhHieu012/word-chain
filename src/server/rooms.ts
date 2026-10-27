@@ -227,6 +227,13 @@ const handlers: Handlers = {
     scheduleSeatGrace(room);
   },
 
+  QUICK_JOIN(client, msg) {
+    if (client.seat) return fail(client, 'INVALID_MESSAGE', msg.requestId);
+    const oldest = openRooms().at(-1);
+    if (oldest) handlers.JOIN_ROOM(client, { type: 'JOIN_ROOM', roomId: oldest.id, requestId: msg.requestId });
+    else handlers.CREATE_ROOM(client, { type: 'CREATE_ROOM', requestId: msg.requestId });
+  },
+
   REJOIN_ROOM(client, msg) {
     if (client.seat) return fail(client, 'INVALID_MESSAGE', msg.requestId);
     if (isJoinLimited(client.ip)) return fail(client, 'RATE_LIMITED', msg.requestId);

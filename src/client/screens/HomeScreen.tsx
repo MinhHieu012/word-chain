@@ -37,7 +37,10 @@ export function HomeScreen({ room }: { room: RoomApi }) {
       </header>
 
       <div className="card">
-        <button className="btn btn-primary btn-block" type="button" disabled={!ready} onClick={() => room.createRoom(isPrivate)}>
+        <button className="btn btn-primary btn-block" type="button" disabled={!ready} onClick={room.quickJoin}>
+          Tìm trận nhanh
+        </button>
+        <button className="btn btn-secondary btn-block" type="button" disabled={!ready} onClick={() => room.createRoom(isPrivate)}>
           Tạo phòng mới
         </button>
         <label className={styles.private}>
